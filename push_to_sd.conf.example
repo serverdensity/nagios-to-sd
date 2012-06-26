@@ -1,0 +1,9 @@
+[nagios]
+states-file = /usr/local/nagios/var/status.dat
+
+[serverdensity]
+account-url = http://example.serverdensity.com
+username = user
+password = foo
+api-key = bar
+agent-key = asdfasdf
