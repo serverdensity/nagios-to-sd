@@ -1,0 +1,7 @@
+#!/usr/bin/env python
+import nagparser
+import OptParser
+
+files = []
+config = nagparser.config(files=files)
+nag = nagparser.parse(config)
