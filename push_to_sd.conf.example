@@ -1,5 +1,6 @@
 [nagios]
 states-file = /usr/local/nagios/var/status.dat
+error-return-code = warning
 
 [serverdensity]
 account-url = http://example.serverdensity.com
@@ -7,3 +8,14 @@ username = user
 password = foo
 api-key = bar
 agent-key = asdfasdf
+
+[logging]
+filename = /usr/local/var/log/nagios/push-to-sd.log
+#CRITICAL = 50
+#ERROR = 40
+#WARNING = 30
+#INFO = 20
+#DEBUG = 10
+#NOTSET = 0
+level = 40
+format = %(asctime)-15s %(message)s

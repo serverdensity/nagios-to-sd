@@ -1,10 +1,52 @@
 #!/usr/bin/env python
+# ex: set tabstop=4 shiftwidth=4 expandtab syntax=python:
+
+import os
+import sys
+import codecs
+import logging
 import nagparser
-from optparse import OptionParser
 from pprint import pprint
+from optparse import OptionParser
+from ConfigParser import ConfigParser
 
-files = ['/usr/local/nagios/var/status.dat']
-config = nagparser.NagConfig(files=files)
-nag = nagparser.parse(config)
+# Nagios exit codes
+RETURN_CODES = {
+    'ok': 0,
+    'warning': 1,
+    'critical': 2,
+    'unknown': 3
+}
 
-print pprint(nag.genoutput(finaloutput=False))
+def main():
+    parser = OptionParser(usage="""usage: %prog [options]""")
+
+    parser.add_option('-c', '--config', dest='config_path', help='Config file path')
+    (options, pos_args) = parser.parse_args()
+
+    if options.config_path:
+        config_path = options.config_path
+    else:
+        config_path = os.path.join(os.path.dirname(__file__), 'push_to_sd.conf')
+
+    config_parser = ConfigParser()
+    config_parser.readfp(codecs.open(os.path.abspath(config_path), "r", "utf8"))
+    config = config_parser._sections
+
+    if 'logging' in config and 'filename' in config['logging']:
+        if not os.path.exists(os.path.dirname(config['logging']['filename'])):
+            os.makedirs(os.path.dirname(config['logging']['filename']))
+
+    # Setup logging options from config file
+    logging.basicConfig(**config['logging'])
+
+    nag_config = nagparser.NagConfig(files=[config['nagios']['states-file']])
+    nag = nagparser.parse(nag_config)
+
+    print pprint(nag.genoutput(finaloutput=False))
+
+    return RETURN_CODES['ok']
+
+
+if __name__ == '__main__':
+    sys.exit(main())
