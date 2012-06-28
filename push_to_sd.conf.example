@@ -7,7 +7,18 @@ account-url = http://example.serverdensity.com
 username = user
 password = foo
 api-key = bar
-agent-key = asdfasdf
+agents = foohost
+         barhost
+         bazhost
+
+[foohost]
+agent-key = 1234567890
+
+[barhost]
+agent-key = asdfghjkl
+
+[bazhost]
+agent-key = qwertyuiop
 
 [logging]
 filename = /usr/local/var/log/nagios/push-to-sd.log

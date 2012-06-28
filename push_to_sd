@@ -40,10 +40,27 @@ def main():
     # Setup logging options from config file
     logging.basicConfig(**config['logging'])
 
+    # Create a hash of agent keys
+    agent_keys = {}
+    for host in config['serverdensity']['agents'].split('\n')
+        host = host.strip()
+        agent_keys[host] = config[host]['agent-key']
+
     nag_config = nagparser.NagConfig(files=[config['nagios']['states-file']])
     nag = nagparser.parse(nag_config)
 
-    print pprint(nag.genoutput(finaloutput=False))
+    data = nag.genoutput(finaloutput=False)
+    pprint(data)
+
+    if 'hosts' in data:
+        for host in hosts:
+            if host['attributes']['host_name'] not in agent_keys:
+                # We don't know about this one so skip it
+                continue
+
+            postback = {}
+            for service in host['services']:
+                pass
 
     return RETURN_CODES['ok']
 
