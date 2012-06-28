@@ -18,6 +18,25 @@ RETURN_CODES = {
     'unknown': 3
 }
 
+def process_disk_stats(doc):
+    return {}
+
+def process_mysql_stats(doc):
+    return {}
+
+def process_cpu_stats(doc):
+    return {}
+
+def process_mem_stats(doc):
+    return {}
+
+calls = {
+    'disk': process_disk_stats,
+    'mysql': process_mysql_stats,
+    'cpu': process_cpu_stats,
+    'mem': process_mem_stats,
+}
+
 def main():
     parser = OptionParser(usage="""usage: %prog [options]""")
 
@@ -60,7 +79,7 @@ def main():
 
             postback = {}
             for service in host['services']:
-                pass
+                postback.extend(calls[service['key']](service))
 
     return RETURN_CODES['ok']
 
