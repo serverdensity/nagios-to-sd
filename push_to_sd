@@ -91,7 +91,7 @@ def process_process_stats(doc):
     ]
 
     return {
-        "processes": [proc for i in xrange(1, process_total)]
+        "processes": [proc for i in xrange(1, int(process_total))]
     }
 
 
@@ -117,40 +117,40 @@ def main():
     config_parser.readfp(codecs.open(os.path.abspath(config_path), "r", "utf8"))
     config = config_parser._sections
 
-    if 'logging' in config and 'filename' in config['logging']:
-        if not os.path.exists(os.path.dirname(config['logging']['filename'])):
-            os.makedirs(os.path.dirname(config['logging']['filename']))
+    try:
+        if 'logging' in config and 'filename' in config['logging']:
+            if not os.path.exists(os.path.dirname(config['logging']['filename'])):
+                os.makedirs(os.path.dirname(config['logging']['filename']))
 
-    config['logging']['level'] = getattr(logging, config['logging']['level'])
-    # Setup logging options from config file
-    logging.basicConfig(**config['logging'])
+        config['logging']['level'] = getattr(logging, config['logging']['level'])
+        # Setup logging options from config file
+        logging.basicConfig(**config['logging'])
 
-    # Create a hash of agent keys
-    agent_keys = {}
-    for host in config['serverdensity']['agents'].split('\n'):
-        host = host.strip()
-        agent_keys[host] = config[host]['agent-key']
+        # Create a hash of agent keys
+        agent_keys = {}
+        for host in config['serverdensity']['agents'].split('\n'):
+            host = host.strip()
+            agent_keys[host] = config[host]['agent-key']
 
-    # SD API client for posting postback data
-    api = SDApi(
-        config['serverdensity']['account-url'],
-        config['serverdensity']['username'],
-        config['serverdensity']['password'],
-        config['serverdensity']['api-key']
-    )
+        # SD API client for posting postback data
+        api = SDApi(
+            config['serverdensity']['account-url'],
+            config['serverdensity']['username'],
+            config['serverdensity']['password'],
+            config['serverdensity']['api-key']
+        )
 
-    nag_config = nagparser.NagConfig(files=[config['nagios']['states-file']])
-    nag = nagparser.parse(nag_config)
+        nag_config = nagparser.NagConfig(files=[config['nagios']['states-file']])
+        nag = nagparser.parse(nag_config)
 
-    data = nag.genoutput(finaloutput=False)
+        data = nag.genoutput(finaloutput=False)
 
-    # Get device IDs from the SD API
-    devices = api.devices.list()
-    device_ids = {}
-    for device in devices['data']['devices']:
-        device_ids[device['hostName']] = device['deviceId']
+        # Get device IDs from the SD API
+        devices = api.devices.list()
+        device_ids = {}
+        for device in devices['data']['devices']:
+            device_ids[device['hostName']] = device['deviceId']
 
-    if 'hosts' in data:
         for host in data['hosts']:
             if host['attributes']['host_name'] not in agent_keys:
                 # We don't know about this one so skip it
@@ -160,11 +160,8 @@ def main():
                 'agentKey': agent_keys[host['attributes']['host_name']]
             }
             for service in host['services']:
-                try:
-                    key = service['attributes']['check_command'].split('!')[0]
-                    postback.update(calls.get(key, lambda x: {})(service['attributes']))
-                except Exception,e:
-                    logging.error(e)
+                key = service['attributes']['check_command'].split('!')[0]
+                postback.update(calls.get(key, lambda x: {})(service['attributes']))
             # Perform postback using device ID
             api.metrics.postback(params={
                 'deviceId': device_ids[host['attributes']['host_name']],
@@ -172,9 +169,14 @@ def main():
             data={
                 'payload': json.dumps(postback)
             })
-            print json.dumps(postback)
             # Delay another postback for 2secs so we don't hammer the API
             sleep(2)
+
+    except Exception,e:
+        logging.error(e)
+
+        if config['nagios']['return-on-error']:
+            return RETURN_CODES[config['nagios']['error-return-code']]
 
     return RETURN_CODES['ok']
 

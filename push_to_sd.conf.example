@@ -1,6 +1,8 @@
 [nagios]
 states-file = /usr/local/nagios/var/status.dat
 error-return-code = warning
+# Change to 1 to enable
+return-on-error = 0
 
 [serverdensity]
 account-domain = example.serverdensity.com
@@ -22,11 +24,5 @@ agent-key = qwertyuiop
 
 [logging]
 filename = /usr/local/var/log/nagios/push-to-sd.log
-#CRITICAL = 50
-#ERROR = 40
-#WARNING = 30
-#INFO = 20
-#DEBUG = 10
-#NOTSET = 0
-level = 40
+level = ERROR
 format = %(asctime)-15s %(message)s
