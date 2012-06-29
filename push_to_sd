@@ -7,7 +7,6 @@ import codecs
 import logging
 import nagparser
 from time import sleep
-from pprint import pprint
 from optparse import OptionParser
 from serverdensity.api import SDApi
 from ConfigParser import ConfigParser
@@ -75,10 +74,32 @@ def process_cpu_stats(doc):
         "loadAvrg": load
     }
 
+def process_process_stats(doc):
+    process_total = doc['plugin_output'].split('OK: ')[1].split(' ')[0]
+    proc = [
+        "root",
+        "1",
+        "0.0",
+        "0.0",
+        "1337",
+        "1337",
+        "?",
+        "Ss",
+        "2011",
+        "0:00",
+        "none"
+    ]
+
+    return {
+        "processes": [proc for i in xrange(1, process_total)]
+    }
+
+
 calls = {
     'check_local_swap': process_swap_stats,
     'check_local_disk': process_disk_stats,
     'check_local_load': process_cpu_stats,
+    'check_local_procs': process_process_stats
 }
 
 def main():
@@ -128,7 +149,6 @@ def main():
     device_ids = {}
     for device in devices['data']['devices']:
         device_ids[device['hostName']] = device['deviceId']
-    print(device_ids)
 
     if 'hosts' in data:
         for host in data['hosts']:
@@ -146,14 +166,13 @@ def main():
                 except Exception,e:
                     logging.error(e)
             # Perform postback using device ID
-            print host['attributes']['host_name']
-            print device_ids[host['attributes']['host_name']]
             api.metrics.postback(params={
                 'deviceId': device_ids[host['attributes']['host_name']],
             },
             data={
                 'payload': json.dumps(postback)
             })
+            print json.dumps(postback)
             # Delay another postback for 2secs so we don't hammer the API
             sleep(2)
 
