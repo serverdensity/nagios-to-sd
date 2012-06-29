@@ -3,7 +3,7 @@ states-file = /usr/local/nagios/var/status.dat
 error-return-code = warning
 
 [serverdensity]
-account-url = http://example.serverdensity.com
+account-domain = example.serverdensity.com
 username = user
 password = foo
 api-key = bar

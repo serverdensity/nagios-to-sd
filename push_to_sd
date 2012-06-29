@@ -6,9 +6,16 @@ import sys
 import codecs
 import logging
 import nagparser
+from time import sleep
 from pprint import pprint
 from optparse import OptionParser
+from serverdensity.api import SDApi
 from ConfigParser import ConfigParser
+
+try:
+    import simplejson as json
+except ImportError:
+    import json
 
 # Nagios exit codes
 RETURN_CODES = {
@@ -18,23 +25,60 @@ RETURN_CODES = {
     'unknown': 3
 }
 
-def process_disk_stats(doc):
-    return {}
+def group_iter(iterator, n=2, strict=False):
+    """ Transforms a sequence of values into a sequence of n-tuples.
+    e.g. [1, 2, 3, 4, ...] => [(1, 2), (3, 4), ...] (when n == 2)
+    If strict, then it will raise ValueError if there is a group of fewer
+    than n items at the end of the sequence. """
+    accumulator = []
+    for item in iterator:
+        accumulator.append(item)
+        if len(accumulator) == n: # tested as fast as separate counter
+            yield tuple(accumulator)
+            accumulator = [] # tested faster than accumulator[:] = []
+            # and tested as fast as re-using one list object
+    if strict and len(accumulator) != 0:
+        raise ValueError("Leftover values")
 
-def process_mysql_stats(doc):
-    return {}
+
+def process_swap_stats(doc):
+    _, mem = doc['performance_data'].split('=')
+    parts = mem.split(';')
+    return {
+        'memSwapUsed': parts[0][:-2],
+        'memSwapFree': int(parts[-1]) - int(parts[0][:-2])
+    }
+
+def process_disk_stats(doc):
+    ret = []
+    pairs = doc['performance_data'].split('=')
+    for mount, stats in group_iter(pairs):
+        stats = stats.split(';')
+        used = int(stats[0][:-2])
+        total = int(stats[1])+used
+        ret.append([
+            "none", # We don't get the device just the mount point
+            (total*1024)*1024,
+            128, # idunnolol, default to 128
+            527, # idunnolol, default to 526
+            "%i%%" % (float(used)/float(total)*100,),
+            mount
+        ])
+    return {
+        "diskUsage": ret
+    }
 
 def process_cpu_stats(doc):
-    return {}
+    load = doc['performance_data'].split(' ')[2].split('=')[1].split(';')[2]
 
-def process_mem_stats(doc):
-    return {}
+    return {
+        "loadAvrg": load
+    }
 
 calls = {
-    'disk': process_disk_stats,
-    'mysql': process_mysql_stats,
-    'cpu': process_cpu_stats,
-    'mem': process_mem_stats,
+    'check_local_swap': process_swap_stats,
+    'check_local_disk': process_disk_stats,
+    'check_local_load': process_cpu_stats,
 }
 
 def main():
@@ -56,30 +100,62 @@ def main():
         if not os.path.exists(os.path.dirname(config['logging']['filename'])):
             os.makedirs(os.path.dirname(config['logging']['filename']))
 
+    config['logging']['level'] = getattr(logging, config['logging']['level'])
     # Setup logging options from config file
     logging.basicConfig(**config['logging'])
 
     # Create a hash of agent keys
     agent_keys = {}
-    for host in config['serverdensity']['agents'].split('\n')
+    for host in config['serverdensity']['agents'].split('\n'):
         host = host.strip()
         agent_keys[host] = config[host]['agent-key']
+
+    # SD API client for posting postback data
+    api = SDApi(
+        config['serverdensity']['account-url'],
+        config['serverdensity']['username'],
+        config['serverdensity']['password'],
+        config['serverdensity']['api-key']
+    )
 
     nag_config = nagparser.NagConfig(files=[config['nagios']['states-file']])
     nag = nagparser.parse(nag_config)
 
     data = nag.genoutput(finaloutput=False)
-    pprint(data)
+
+    # Get device IDs from the SD API
+    devices = api.devices.list()
+    device_ids = {}
+    for device in devices['data']['devices']:
+        device_ids[device['hostName']] = device['deviceId']
+    print(device_ids)
 
     if 'hosts' in data:
-        for host in hosts:
+        for host in data['hosts']:
             if host['attributes']['host_name'] not in agent_keys:
                 # We don't know about this one so skip it
                 continue
 
-            postback = {}
+            postback = {
+                'agentKey': agent_keys[host['attributes']['host_name']]
+            }
             for service in host['services']:
-                postback.extend(calls[service['key']](service))
+                try:
+                    key = service['attributes']['check_command'].split('!')[0]
+                    postback.update(calls.get(key, lambda x: {})(service['attributes']))
+                except Exception,e:
+                    logging.error(e)
+            # Perform postback using device ID
+            print host['attributes']['host_name']
+            print device_ids[host['attributes']['host_name']]
+            api.metrics.postback(params={
+                'deviceId': device_ids[host['attributes']['host_name']],
+            },
+            data={
+                'payload': json.dumps(postback)
+            })
+            # Delay another postback for 2secs so we don't hammer the API
+            sleep(2)
 
     return RETURN_CODES['ok']
 
