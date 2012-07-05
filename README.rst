@@ -33,7 +33,7 @@ If you don't have `pip` installed you can `easy_install` each requirement manual
 
 Edit the push_to_sd.conf file with your ServerDensity.com API credentials and agent key (see http://developer.serverdensity.com/docs/read/Authentication), as well as any other configuration values:
 
-_[nagios]_
+**[nagios]**
 
 *error-return-code*
   A Nagios plugin return code (ok, warning, critical, or unknown) to return if the return-on-error setting is true (1).
@@ -41,7 +41,8 @@ _[nagios]_
 *return-on-error*
   If the plugin encounters an error, e.g. an an error posting to the SD API, then return (with error-return-code) instead of continuing. Does not effect the error being logged
 
-_[serverdensity]_
+
+**[serverdensity]**
 
 *agents*
   Newline seperated list of agent configs, these should be the hostnames that Nagios knows about.
