@@ -31,7 +31,7 @@ To install python dependencies you can use::
 
 If you don't have `pip` installed you can `easy_install` each requirement manually (see the `requirements.txt` file or the requirements section above)
 
-Edit the push_to_sd.conf file with your ServerDensity.com API credentials and agent key (see http://developer.serverdensity.com/docs/read/Authentication), as well as any other configuration values:
+Edit the push_to_sd.conf file with your ServerDensity.com API credentials and agent key (see https://developer.serverdensity.com), as well as any other configuration values:
 
 ``[nagios]``
 
